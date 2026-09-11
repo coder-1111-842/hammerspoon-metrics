@@ -1,0 +1,96 @@
+{
+  "pmUsage" : {
+    "script" : "scripts\/pm-usage.sh",
+    "interval" : 5
+  },
+  "offsets" : {
+    "primary" : [
+
+    ],
+    "EV2780" : {
+      "y" : 240,
+      "x" : 0
+    }
+  },
+  "display" : [
+    "EV2780",
+    "primary"
+  ],
+  "netlimiter" : {
+    "enabled" : false
+  },
+  "widgets" : {
+    "gpu" : {
+      "order" : 4,
+      "enabled" : true,
+      "colors" : {
+        "alert" : "#ff0000",
+        "normal" : "#ffffff"
+      },
+      "threshold" : 80
+    },
+    "wallpaper" : {
+      "dir" : "",
+      "interval" : 20,
+      "order" : 2,
+      "display" : [
+        "primary",
+        "EV2780"
+      ],
+      "enabled" : true
+    },
+    "ram" : {
+      "script" : "scripts\/ramSize.sh",
+      "interval" : 3,
+      "enabled" : true,
+      "order" : 5,
+      "colors" : {
+        "alert" : "#ff0000",
+        "normal" : "#ffffff"
+      },
+      "threshold" : 75
+    },
+    "cpu" : {
+      "enabled" : true,
+      "colors" : {
+        "alert" : "#ff0000",
+        "normal" : "#ffffff"
+      },
+      "order" : 3,
+      "threshold" : 80
+    },
+    "date" : {
+      "script" : "scripts\/dateTime.sh",
+      "interval" : 60,
+      "enabled" : true,
+      "order" : 1
+    },
+    "ssd" : {
+      "script" : "scripts\/usedSSDSpace.sh",
+      "interval" : 10,
+      "colors" : {
+        "alert" : "#ff0000",
+        "normal" : "#ffffff"
+      },
+      "enabled" : true,
+      "order" : 6,
+      "threshold" : 70
+    },
+    "net" : {
+      "interval" : 2,
+      "enabled" : true,
+      "colors" : {
+        "up" : "#fffb00",
+        "down" : "#e32400",
+        "normal" : "#ffffff"
+      },
+      "order" : 7
+    }
+  },
+  "layout" : {
+    "step" : 54,
+    "x" : 20,
+    "h" : 48,
+    "baseY" : 650
+  }
+}

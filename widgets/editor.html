@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: #1e1e1e; color: #eee;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+       color: #999; margin: 20px 0 8px; }
+  .hint { color: #888; font-size: 11px; margin: 0 0 12px; }
+
+  #list { display: flex; flex-direction: column; gap: 6px; }
+  .row {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    background: #2a2a2a; border: 1px solid #383838; border-radius: 8px;
+    padding: 8px 10px;
+    -webkit-user-drag: none; /* stop WebKit treating rows as draggable objects */
+  }
+  .row.drag-src { opacity: .4; }
+  .row.drag-over { border-color: #2f6fed; }
+  .row.disabled .name { color: #777; }
+  .handle {
+    cursor: grab; color: #777; font-size: 16px;
+    -webkit-user-select: none; user-select: none;
+    padding: 0 2px;
+  }
+  body.dragging .handle { cursor: grabbing; }
+  .name { font-weight: 600; min-width: 88px; }
+  .fld { display: inline-flex; align-items: center; gap: 4px; color: #bbb; font-size: 11px; }
+  .fld input[type=number] { width: 52px; }
+  input[type=number], input[type=text] {
+    background: #1a1a1a; border: 1px solid #444; border-radius: 5px;
+    color: #eee; padding: 3px 6px; font: inherit;
+  }
+  input[type=color] {
+    width: 26px; height: 20px; padding: 0; border: 1px solid #444;
+    border-radius: 4px; background: #1a1a1a;
+  }
+  input[type=checkbox] { width: 15px; height: 15px; }
+  .dirrow { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
+  .dirrow .dir { flex: 1; }
+  button {
+    background: #3a3a3a; border: 1px solid #4a4a4a; color: #eee;
+    border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer;
+  }
+  button:hover { background: #454545; }
+  button.primary { background: #2f6fed; border-color: #2f6fed; }
+  button.primary:hover { background: #3b78f0; }
+
+  #layout { display: flex; gap: 14px; flex-wrap: wrap; }
+  #netlimiter { margin-top: 16px; }
+  .actions { display: flex; gap: 8px; margin-top: 20px; }
+  .note { color: #777; font-size: 11px; margin-top: 12px; }
+</style>
+</head>
+<body>
+  <h1>Widget Dashboard</h1>
+  <p class="hint">Drag the ⠿ handle to reorder. Toggle to enable/disable.</p>
+
+  <div id="list"></div>
+
+  <h2>Layout</h2>
+  <div id="layout">
+    <label class="fld">x <input type="number" id="lx"></label>
+    <label class="fld">baseY <input type="number" id="lbaseY"></label>
+
+  </div>
+
+  <div id="netlimiter">
+    <label class="fld"><input type="checkbox" id="nlEnabled"> NetLimiter (menubar icon)</label>
+  </div>
+
+  <div class="actions">
+    <button id="save" class="primary">Save &amp; Apply</button>
+    <button id="close">Close</button>
+  </div>
+  <p class="note">Save &amp; Apply reloads Hammerspoon.
+      Intervals are in seconds. Thresholds are percentages.</p>
+  <p class="note"></p>
+
+
+<script>
+  var config = null;
+
+  function bridge(msg){ window.webkit.messageHandlers.widgetsEditor.postMessage(msg); }
+  function hex6(h){ h = h || "#ffffff"; return h.length >= 7 ? h.substring(0, 7) : h; }
+  function byId(id){ return document.getElementById(id); }
+  function setVal(id, v){ var e = byId(id); if (e) e.value = (v == null ? "" : v); }
+  function numOr(cur, id){ var e = byId(id); return (e && e.value !== "") ? Number(e.value) : cur; }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+
+  window.loadConfig = function(cfg){
+    config = cfg;
+    if (!config.widgets)    config.widgets    = {};
+    if (!config.layout)     config.layout     = {};
+    if (!config.netlimiter) config.netlimiter = {};
+    render();
+  };
+
+  window.setFolder = function(key, path){
+    if (!config || !config.widgets[key]) return;
+    config.widgets[key].dir = path;
+    var el = document.querySelector('[data-dir="' + key + '"]');
+    if (el) el.value = path;
+  };
+
+  function sortedNames(){
+    var names = Object.keys(config.widgets);
+    names.sort(function(a, b){
+      var oa = config.widgets[a].order || 999, ob = config.widgets[b].order || 999;
+      return oa - ob || a.localeCompare(b);
+    });
+    return names;
+  }
+
+  function render(){
+    var list = byId("list");
+    list.innerHTML = "";
+    sortedNames().forEach(function(name){
+      var w = config.widgets[name];
+      var row = document.createElement("div");
+      row.className = "row" + (w.enabled ? "" : " disabled");
+      row.dataset.name = name;
+
+      var html = '<span class="handle" title="Drag to reorder">\u283F</span>'
+        + '<input type="checkbox" data-en="' + name + '" ' + (w.enabled ? "checked" : "") + '>'
+        + '<span class="name">' + esc(name) + '</span>';
+
+      if (w.threshold != null)
+        html += '<label class="fld">threshold&nbsp;<input type="number" min="0" max="100" value="'
+              + esc(w.threshold) + '" data-thr="' + name + '"></label>';
+      if (w.interval != null)
+        html += '<label class="fld">interval&nbsp;<input type="number" min="1" value="'
+              + esc(w.interval) + '" data-int="' + name + '"></label>';
+      if (w.colors)
+        Object.keys(w.colors).forEach(function(k){
+          html += '<label class="fld">' + esc(k) + '&nbsp;<input type="color" value="'
+                + hex6(w.colors[k]) + '" data-col="' + name + ':' + k + '"></label>';
+        });
+      if (w.dir != null)
+        html += '<div class="dirrow"><input type="text" class="dir" value="'
+              + esc(w.dir || "") + '" data-dir="' + name + '">'
+              + '<button data-choose="' + name + '">Choose\u2026</button></div>';
+
+      row.innerHTML = html;
+
+      // Attach mouse-based drag to the handle (bypasses WKWebView's HTML5 DnD
+      // interception — pointer events work correctly in embedded WebKit).
+      row.querySelector(".handle").addEventListener("mousedown", function(e){
+        startDrag(e, row);
+      });
+
+      list.appendChild(row);
+    });
+
+    var L = config.layout || {};
+    setVal("lx", L.x); setVal("lbaseY", L.baseY); setVal("lstep", L.step); setVal("lh", L.h);
+
+    byId("nlEnabled").checked = !!(config.netlimiter && config.netlimiter.enabled);
+  }
+
+  // ── Mouse-based drag reorder ────────────────────────────────────────────────
+  // Uses mousedown / mousemove / mouseup instead of HTML5 DnD API.
+  // HTML5 DnD is intercepted by the OS drag system in embedded WKWebView and
+  // reliably broken there; low-level pointer events are not affected.
+
+  var drag = null; // { el, overEl }
+
+  function startDrag(e, row) {
+    e.preventDefault(); // prevent text selection while dragging
+    drag = { el: row, overEl: null };
+    row.classList.add("drag-src");
+    document.body.classList.add("dragging");
+    document.addEventListener("mousemove", onDragMove);
+    document.addEventListener("mouseup",   onDragEnd);
+  }
+
+  function onDragMove(e) {
+    if (!drag) return;
+    var list   = byId("list");
+    var rows   = Array.prototype.slice.call(list.querySelectorAll(".row"));
+    var target = null;
+
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i] === drag.el) continue;
+      var rect = rows[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) { target = rows[i]; break; }
+    }
+
+    // Clear old highlight
+    if (drag.overEl) drag.overEl.classList.remove("drag-over");
+
+    // Reorder in DOM immediately for live feedback
+    list.removeChild(drag.el);
+    if (target) { list.insertBefore(drag.el, target); drag.overEl = target; }
+    else         { list.appendChild(drag.el);          drag.overEl = null;   }
+
+    if (drag.overEl) drag.overEl.classList.add("drag-over");
+  }
+
+  function onDragEnd() {
+    if (drag) {
+      drag.el.classList.remove("drag-src");
+      if (drag.overEl) drag.overEl.classList.remove("drag-over");
+      drag = null;
+    }
+    document.body.classList.remove("dragging");
+    document.removeEventListener("mousemove", onDragMove);
+    document.removeEventListener("mouseup",   onDragEnd);
+  }
+
+  // ── Folder chooser (event delegation) ─────────────────────────────────────
+  byId("list").addEventListener("click", function(e){
+    var b = e.target.closest("[data-choose]");
+    if (b) bridge({ action: "chooseFolder", key: b.dataset.choose });
+  });
+
+  // Reflect enable/disable dimming live
+  byId("list").addEventListener("change", function(e){
+    var en = e.target.closest("[data-en]");
+    if (en) en.closest(".row").classList.toggle("disabled", !en.checked);
+  });
+
+  // ── Collect DOM state → config ─────────────────────────────────────────────
+  function collect(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll("#list .row"));
+    rows.forEach(function(row, i){
+      var name = row.dataset.name, w = config.widgets[name];
+      w.order = i + 1;
+      var en  = row.querySelector("[data-en]");  if (en)  w.enabled   = en.checked;
+      var thr = row.querySelector("[data-thr]");  if (thr && thr.value !== "") w.threshold = Number(thr.value);
+      var int = row.querySelector("[data-int]");  if (int && int.value !== "") w.interval  = Number(int.value);
+      row.querySelectorAll("[data-col]").forEach(function(c){
+        var parts = c.dataset.col.split(":");
+        config.widgets[parts[0]].colors[parts[1]] = c.value;
+      });
+      var dir = row.querySelector("[data-dir]"); if (dir) w.dir = dir.value;
+    });
+    config.layout = config.layout || {};
+    config.layout.x     = numOr(config.layout.x,     "lx");
+    config.layout.baseY = numOr(config.layout.baseY,  "lbaseY");
+    config.layout.step  = numOr(config.layout.step,   "lstep");
+    config.layout.h     = numOr(config.layout.h,      "lh");
+
+    config.netlimiter = config.netlimiter || {};
+    config.netlimiter.enabled = byId("nlEnabled").checked;
+  }
+
+  byId("save").onclick  = function(){ collect(); bridge({ action: "save", config: config }); };
+  byId("close").onclick = function(){ bridge({ action: "close" }); };
+
+  // Tell Lua we're ready to receive the config
+  bridge({ action: "ready" });
+</script>
+</body>
+</html>

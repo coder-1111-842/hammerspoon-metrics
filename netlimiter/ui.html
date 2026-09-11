@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetLimiter</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --muted: #8e8e93;
+    --line: #d1d1d6;
+    --accent: #0a84ff;
+    --green: #34c759;
+    --orange: #ff9f0a;
+    --red: #ff453a;
+    --field: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --card: #2c2c2e;
+      --text: #f2f2f7;
+      --muted: #98989f;
+      --line: #3a3a3c;
+      --field: #1c1c1e;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 13px -apple-system, "SF Pro Text", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 18px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .spacer { flex: 1; }
+  h1 { font-size: 17px; font-weight: 700; margin: 0; }
+  .muted { color: var(--muted); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+
+  /* Toggle switch */
+  .switch { position: relative; width: 46px; height: 28px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-sw {
+    position: absolute; inset: 0; cursor: pointer;
+    background: var(--line); border-radius: 999px; transition: .2s;
+  }
+  .slider-sw::before {
+    content: ""; position: absolute; height: 24px; width: 24px;
+    left: 2px; top: 2px; background: #fff; border-radius: 50%;
+    transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+  .switch input:checked + .slider-sw { background: var(--green); }
+  .switch input:checked + .slider-sw::before { transform: translateX(18px); }
+  .switch input:disabled + .slider-sw { opacity: .5; cursor: default; }
+
+  .statepill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; color: var(--muted);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--green); }
+  .dot.busy { background: var(--orange); }
+
+  .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+
+  .section { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .section .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .section .head .name { font-weight: 600; }
+  .badge { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-size: 11px; }
+  .badge.dl { background: var(--accent); }
+  .badge.ul { background: var(--orange); }
+
+  input[type="number"] {
+    width: 82px; text-align: right; font: inherit;
+    padding: 5px 7px; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--field); color: var(--text);
+    -webkit-user-select: text; user-select: text;
+  }
+  input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+  input[type="range"] { width: 100%; margin: 12px 0 6px; accent-color: var(--accent); }
+  .speed { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .scalerow { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .presets button {
+    flex: 1; min-width: 44px; padding: 6px 0; font: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: var(--card); color: var(--text);
+  }
+  .presets button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  button.primary {
+    width: 100%; padding: 9px; font: inherit; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 9px; background: var(--accent); color: #fff;
+    margin-top: 2px;
+  }
+  button.primary:disabled { opacity: .4; cursor: default; }
+
+  .error { color: var(--red); font-size: 12px; min-height: 15px; margin-top: 8px; }
+  a { color: var(--accent); text-decoration: none; }
+  .footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <label class="switch">
+      <input type="checkbox" id="power">
+      <span class="slider-sw"></span>
+    </label>
+    <h1 id="onoff">OFF</h1>
+    <div class="spacer"></div>
+    <label class="check"><input type="checkbox" id="split"> Split Up/Down</label>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <span class="statepill"><span class="dot" id="dot"></span><span id="status">Not limiting</span></span>
+  </div>
+
+  <hr>
+
+  <!-- Download -->
+  <div class="section">
+    <div class="head">
+      <span class="badge dl">↓</span>
+      <span class="name" id="dlname">Speed</span>
+      <div class="spacer"></div>
+      <input type="number" id="dlnum" min="100" max="1000000" step="100">
+      <span class="muted">Kbps</span>
+    </div>
+    <input type="range" id="dlrange" min="100" max="1000000" step="100">
+    <div class="scalerow"><span>100 Kbps</span><span class="speed" id="dlspeed"></span><span>1 Gbps</span></div>
+  </div>
+
+  <!-- Upload (split mode only) -->
+  <div class="section hidden" id="ulsection">
+    <div class="head">
+      <span class="badge ul">↑</span>
+      <span class="name">Upload</span>
+      <div class="spacer"></div>
+      <input type="number" id="ulnum" min="100" max="1000000" step="100">
+      <span class="muted">Kbps</span>
+    </div>
+    <input type="range" id="ulrange" min="100" max="1000000" step="100">
+    <div class="scalerow"><span>100 Kbps</span><span class="speed" id="ulspeed"></span><span>1 Gbps</span></div>
+  </div>
+
+  <div class="presets" id="presets"></div>
+
+  <div style="margin-top:12px">
+    <button class="primary" id="apply" disabled>Apply</button>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <hr>
+  <div class="footer">
+    Traffic shaping via <span class="muted">dnctl</span> + <span class="muted">pfctl</span> ·
+    by <a href="#" id="credit">Dima Goltsman</a>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- single source of truth ---------------------------------------------
+  var state = { enabled: false, busy: false, error: null };
+  var dl = 100000, ul = 100000, split = false;
+  var synced = false;
+
+  var PRESETS = [
+    ["512K", 512], ["1M", 1000], ["10M", 10000],
+    ["100M", 100000], ["500M", 500000], ["1G", 1000000]
+  ];
+
+  function post(msg) {
+    try { window.webkit.messageHandlers.netlimiter.postMessage(msg); } catch (e) {}
+  }
+
+  function clamp(v) { v = Math.round(v / 100) * 100; return Math.max(100, Math.min(1000000, v)); }
+
+  function fmtSpeed(kbps) {
+    if (kbps >= 1000000) return (kbps / 1000000).toFixed(2) + " Gbps";
+    if (kbps >= 1000)    return (kbps / 1000).toFixed(1) + " Mbps";
+    return Math.round(kbps) + " Kbps";
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- build presets --------------------------------------------------------
+  var presetsEl = $("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.textContent = p[0];
+    b.dataset.kbps = p[1];
+    b.addEventListener("click", function () {
+      dl = p[1];
+      if (!split) ul = p[1];
+      render();
+      if (state.enabled) post({ type: "apply", download: dl, upload: split ? ul : dl });
+    });
+    presetsEl.appendChild(b);
+  });
+
+  // ---- render ---------------------------------------------------------------
+  function render() {
+    // power / status
+    $("power").checked = state.enabled;
+    $("power").disabled = state.busy;
+    $("onoff").textContent = state.busy ? "…" : (state.enabled ? "ON" : "OFF");
+    $("onoff").style.color = state.enabled ? "var(--green)" : "var(--muted)";
+
+    var dot = $("dot");
+    dot.className = "dot" + (state.busy ? " busy" : (state.enabled ? " on" : ""));
+    $("status").textContent = state.busy ? "Working…"
+      : state.enabled
+        ? (split ? "Down " + fmtSpeed(dl) + " · Up " + fmtSpeed(ul) : "Active: " + fmtSpeed(dl))
+        : "Not limiting";
+
+    // split toggle + labels
+    $("split").checked = split;
+    $("ulsection").classList.toggle("hidden", !split);
+    $("dlname").textContent = split ? "Download" : "Speed";
+
+    // download controls (avoid clobbering a field the user is editing)
+    if (document.activeElement !== $("dlnum")) $("dlnum").value = Math.round(dl);
+    $("dlrange").value = dl;
+    $("dlspeed").textContent = fmtSpeed(dl);
+
+    if (document.activeElement !== $("ulnum")) $("ulnum").value = Math.round(ul);
+    $("ulrange").value = ul;
+    $("ulspeed").textContent = fmtSpeed(ul);
+
+    // presets highlight
+    Array.prototype.forEach.call(presetsEl.children, function (b) {
+      var v = Number(b.dataset.kbps);
+      b.classList.toggle("active", Math.abs(dl - v) < 1 && (split || Math.abs(ul - v) < 1));
+    });
+
+    $("apply").disabled = !state.enabled;
+    $("error").textContent = state.error || "";
+  }
+
+  // ---- input wiring ---------------------------------------------------------
+  $("power").addEventListener("change", function () {
+    if (this.checked) post({ type: "enable", download: dl, upload: split ? ul : dl });
+    else post({ type: "disable" });
+  });
+
+  $("split").addEventListener("change", function () {
+    split = this.checked;
+    if (!split) ul = dl;         // simple mode keeps them locked together
+    render();
+  });
+
+  $("dlrange").addEventListener("input", function () {
+    dl = clamp(Number(this.value));
+    if (!split) ul = dl;
+    render();
+  });
+  $("dlnum").addEventListener("change", function () {
+    dl = clamp(Number(this.value) || dl);
+    if (!split) ul = dl;
+    render();
+  });
+
+  $("ulrange").addEventListener("input", function () { ul = clamp(Number(this.value)); render(); });
+  $("ulnum").addEventListener("change", function () { ul = clamp(Number(this.value) || ul); render(); });
+
+  $("apply").addEventListener("click", function () {
+    post({ type: "apply", download: dl, upload: split ? ul : dl });
+  });
+
+  $("credit").addEventListener("click", function (e) {
+    e.preventDefault();
+    post({ type: "open", url: "https://github.com/dimagoltsman" });
+  });
+
+  // ---- bridge from Lua ------------------------------------------------------
+  window.NL = {
+    applyState: function (s) {
+      state.enabled = !!s.enabled;
+      state.busy = !!s.busy;
+      state.error = s.error || null;
+      if (!synced) {               // take initial speeds from the engine once
+        dl = Number(s.download) || dl;
+        ul = Number(s.upload) || ul;
+        synced = true;
+      }
+      render();
+    }
+  };
+
+  render();
+  post({ type: "ready" });
+})();
+</script>
+</body>
+</html>
