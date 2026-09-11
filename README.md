@@ -66,8 +66,10 @@ same enable/disable/preset behavior:
    (see hotkeys below), or by editing `widgets.json` directly.
 5. To make the cpu and gpu widgets work , in terminal do:
    >sudo visudo -f /etc/sudoers.d/pm-usage
+   
    In this file add this line:
-   <your-username> ALL=(root) NOPASSWD: /Users/<your-username>/.hammerspoon/scripts/pm-usage.sh
+   
+   your-username ALL=(root) NOPASSWD: /Users/your-username/.hammerspoon/scripts/pm-usage.sh
 
    and save the file.
 
