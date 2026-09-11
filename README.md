@@ -11,6 +11,7 @@ The AI of choice is Claude Opus/Sonnet.
 > **Tested on:** macOS Tahoe, Hammerspoon 1.1.1. It may work on other versions,
 > but that's the only combination this has been verified against.
 
+
 ## Features
 
 ### Widget dashboard (`widgets/`)
@@ -104,7 +105,9 @@ All bound with `Hyper = cmd + alt + ctrl`:
 - NetLimiter's throttling approach is ported from
   [dimagoltsman/osx-net-speed-limiter](https://github.com/dimagoltsman/osx-net-speed-limiter)
   by [Dima Goltsman](https://github.com/dimagoltsman) (MIT licensed).
-
+- Uses the systems built-in tools such as netstat/nctl/pfctl/powermetrics/ioreg/sysctl/diskutil
+  /date/route/top and others. 
+  
 ## License
 
 [MIT](LICENSE)
