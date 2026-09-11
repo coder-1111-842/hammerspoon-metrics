@@ -73,6 +73,9 @@ same enable/disable/preset behavior:
    your-username ALL=(root) NOPASSWD: /Users/your-username/.hammerspoon/scripts/pm-usage.sh
 
    and save the file.
+6. In the scripts directory , make the shell scripts executable.
+
+   
 
 ## Structure
 
