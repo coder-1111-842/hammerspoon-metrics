@@ -6,7 +6,7 @@ Display computer metrics / bandwidth limiter
 A personal vibe-coded [Hammerspoon](https://www.hammerspoon.org/) configuration for macOS: a
 canvas-based system widget dashboard plus a menubar network bandwidth limiter,
 both driven by JSON config files and editable through small `hs.webview` UIs.
-The AI of choice is Claude Opus/Sonnet.
+Claude was used as AI provider.
 
 > **Tested on:** macOS Tahoe, Hammerspoon 1.1.1. It may work on other versions,
 > but that's the only combination this has been verified against.
